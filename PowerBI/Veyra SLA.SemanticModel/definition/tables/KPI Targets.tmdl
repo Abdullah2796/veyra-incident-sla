@@ -1,0 +1,49 @@
+table 'KPI Targets'
+
+	column KPI
+		dataType: string
+		summarizeBy: none
+		sourceColumn: KPI
+		sortByColumn: Sort
+
+	column Target
+		dataType: double
+		summarizeBy: none
+		sourceColumn: Target
+
+	column Direction
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Direction
+
+	column Weight
+		dataType: double
+		formatString: 0%
+		summarizeBy: none
+		sourceColumn: Weight
+
+	column 'KPI Key'
+		dataType: string
+		isHidden
+		summarizeBy: none
+		sourceColumn: KPI Key
+
+	column Sort
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: Sort
+
+	partition 'KPI Targets' = m
+		mode: import
+		source =
+				let
+				    Source = Excel.Workbook(File.Contents(DataFolder & "sla_policy_and_targets.xlsx"), null, true),
+				    Sheet = Source{[Item = "KPI Targets", Kind = "Sheet"]}[Data],
+				    Promoted = Table.PromoteHeaders(Sheet, [PromoteAllScalars = true]),
+				    Typed = Table.TransformColumnTypes(Promoted, {{"Target", type number}, {"Weight", type number}, {"Sort", Int64.Type}, {"KPI", type text}, {"Direction", type text}, {"KPI Key", type text}})
+				in
+				    Typed
+
+	annotation PBI_ResultType = Table
+

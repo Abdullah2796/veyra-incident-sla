@@ -1,0 +1,41 @@
+{
+ "source": "Veyra workforce API (synthetic)",
+ "groups": [
+  {
+   "code": "NOC-L1",
+   "name": "NOC Level 1",
+   "type": "Internal",
+   "vendor": null
+  },
+  {
+   "code": "NOC-L2",
+   "name": "NOC Level 2",
+   "type": "Internal",
+   "vendor": null
+  },
+  {
+   "code": "PLAT",
+   "name": "Platform Engineering",
+   "type": "Internal",
+   "vendor": null
+  },
+  {
+   "code": "FV-ARD",
+   "name": "Field \u2013 Ardent Service",
+   "type": "Vendor",
+   "vendor": "Ardent Service BV"
+  },
+  {
+   "code": "FV-OST",
+   "name": "Field \u2013 Ostra Field Services",
+   "type": "Vendor",
+   "vendor": "Ostra Field Services"
+  },
+  {
+   "code": "FV-PEL",
+   "name": "Field \u2013 Pelikan Techniek",
+   "type": "Vendor",
+   "vendor": "Pelikan Techniek"
+  }
+ ]
+}

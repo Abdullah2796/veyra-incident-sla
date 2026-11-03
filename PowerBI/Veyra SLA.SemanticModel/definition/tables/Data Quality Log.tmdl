@@ -1,0 +1,55 @@
+table 'Data Quality Log'
+
+	column Check
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Check
+		sortByColumn: Sort
+
+	column Source
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Source
+
+	column 'Records Affected'
+		dataType: int64
+		summarizeBy: sum
+		sourceColumn: Records Affected
+
+	column 'Action Taken'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Action Taken
+
+	column Sort
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: Sort
+
+	partition 'Data Quality Log' = m
+		mode: import
+		source =
+				let
+				    Raw = RawIncidents,
+				    Duplicates = Table.RowCount(Raw) - Table.RowCount(Table.Distinct(Raw, {"number"})),
+				    PriorityVariants = Table.RowCount(Table.SelectRows(Raw, each not Text.Contains([priority], " - "))),
+				    MunicipalityCase = Table.RowCount(Table.SelectRows(Raw, each [municipality] = Text.Upper([municipality]))),
+				    BadTimes = Table.RowCount(Table.SelectRows(FactIncident, each [State] <> "Open" and [Resolution Hours] = null)),
+				    NoGroup = Table.RowCount(Table.SelectRows(FactIncident, each [Group Code] = "UNASSIGNED")),
+				    Orphans = Table.RowCount(Table.SelectRows(FactCSAT, each [Has Incident] = false)),
+				    Result = #table(
+				        type table [Check = text, Source = text, Records Affected = Int64.Type, Action Taken = text, Sort = Int64.Type],
+				        {
+				            {"Duplicate incident rows", "ITSM export (CSV)", Duplicates, "Removed – one row per incident number", 1},
+				            {"Priority written in non-standard formats", "ITSM export (CSV)", PriorityVariants, "Mapped P1 / High / low etc. to P1–P4", 2},
+				            {"Resolved before opened (clock errors)", "ITSM export (CSV)", BadTimes, "Excluded from resolution time and SLA", 3},
+				            {"Open incidents with no resolver group", "ITSM export (CSV)", NoGroup, "Shown as 'Unassigned' so they are not lost", 4},
+				            {"Municipality in capitals", "ITSM export (CSV)", MunicipalityCase, "Ignored – municipality taken from the site master", 5},
+				            {"Survey responses for unknown incidents", "CSAT survey (CSV)", Orphans, "Flagged and excluded from CSAT", 6}
+				        })
+				in
+				    Result
+
+	annotation PBI_ResultType = Table
+

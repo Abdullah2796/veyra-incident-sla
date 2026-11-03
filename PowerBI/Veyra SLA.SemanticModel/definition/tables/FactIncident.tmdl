@@ -1,0 +1,185 @@
+table FactIncident
+
+	column Number
+		dataType: string
+		isKey
+		summarizeBy: none
+		sourceColumn: Number
+
+	column 'Opened At'
+		dataType: dateTime
+		formatString: d mmm yyyy hh:nn
+		summarizeBy: none
+		sourceColumn: Opened At
+
+	column 'Opened Date'
+		dataType: dateTime
+		formatString: d mmm yyyy
+		isHidden
+		summarizeBy: none
+		sourceColumn: Opened Date
+
+	column Priority
+		dataType: string
+		isHidden
+		summarizeBy: none
+		sourceColumn: Priority
+
+	column Category
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Category
+
+	column Channel
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Channel
+
+	column 'Group Code'
+		dataType: string
+		isHidden
+		summarizeBy: none
+		sourceColumn: Group Code
+
+	column 'Site ID'
+		dataType: string
+		isHidden
+		summarizeBy: none
+		sourceColumn: Site ID
+
+	column State
+		dataType: string
+		summarizeBy: none
+		sourceColumn: State
+
+	column Shift
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Shift
+
+	column Release
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Release
+
+	column 'Response Minutes'
+		dataType: double
+		formatString: #,0.0
+		summarizeBy: none
+		sourceColumn: Response Minutes
+
+	column 'Resolution Hours'
+		dataType: double
+		formatString: #,0.0
+		summarizeBy: none
+		sourceColumn: Resolution Hours
+
+	column 'Age Hours'
+		dataType: double
+		formatString: #,0
+		summarizeBy: none
+		sourceColumn: Age Hours
+
+	column 'Response Met'
+		dataType: boolean
+		summarizeBy: none
+		sourceColumn: Response Met
+
+	column 'Resolution Met'
+		dataType: boolean
+		summarizeBy: none
+		sourceColumn: Resolution Met
+
+	column 'Is Open'
+		dataType: boolean
+		summarizeBy: none
+		sourceColumn: Is Open
+
+	column 'Is Aged'
+		dataType: boolean
+		summarizeBy: none
+		sourceColumn: Is Aged
+
+	column Reopened
+		dataType: boolean
+		summarizeBy: none
+		sourceColumn: Reopened
+
+	column 'Age Bucket'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Age Bucket
+		sortByColumn: 'Age Bucket Sort'
+
+	column 'Age Bucket Sort'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: Age Bucket Sort
+
+	column 'Resolution Band'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Resolution Band
+		sortByColumn: 'Resolution Band Sort'
+
+	column 'Resolution Band Sort'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: Resolution Band Sort
+
+	partition FactIncident = m
+		mode: import
+		source =
+				let
+				    Raw = RawIncidents,
+				    // 1. remove duplicated export rows
+				    Dedup = Table.Distinct(Raw, {"number"}),
+				    // 2. parse dd/MM/yyyy timestamps; blank resolved = still open
+				    Parse = (t as text) as nullable datetime => if t = "" then null else DateTime.FromText(t, [Format = "dd/MM/yyyy HH:mm", Culture = "en-GB"]),
+				    Typed = Table.TransformColumns(Dedup, {{"opened_at", Parse, type datetime}, {"acknowledged_at", Parse, type datetime}, {"resolved_at", Parse, type datetime}}),
+				    // 3. normalise priority variants (P1, High, 2 - High, low) to P1-P4
+				    PriorityMap = [#"1" = "P1", #"2" = "P2", #"3" = "P3", #"4" = "P4", critical = "P1", high = "P2", moderate = "P3", low = "P4"],
+				    NormPriority = Table.AddColumn(Typed, "Priority", each
+				        let t = Text.Lower(Text.Trim([priority])),
+				            digit = Text.Select(t, {"1".."4"})
+				        in if digit <> "" then Record.Field(PriorityMap, Text.Start(digit, 1)) else Record.FieldOrDefault(PriorityMap, t, null), type text),
+				    Targets = Table.Buffer(DimPriority),
+				    Joined = Table.Join(NormPriority, "Priority", Table.RenameColumns(Table.SelectColumns(Targets, {"Priority", "Response Target (min)", "Resolution Target (hrs)"}), {{"Priority", "Target Priority"}}), "Target Priority", JoinKind.LeftOuter),
+				    AsOf = List.Max(Joined[opened_at]),
+				    // 4. durations; resolved-before-opened timestamps are treated as invalid
+				    AddResp = Table.AddColumn(Joined, "Response Minutes", each Duration.TotalMinutes([acknowledged_at] - [opened_at]), type number),
+				    AddRes = Table.AddColumn(AddResp, "Resolution Hours", each
+				        if [resolved_at] = null then null
+				        else let h = Duration.TotalHours([resolved_at] - [opened_at]) in if h < 0 then null else h, type number),
+				    AddOpen = Table.AddColumn(AddRes, "Is Open", each [state] = "Open", type logical),
+				    AddAge = Table.AddColumn(AddOpen, "Age Hours", each if [Is Open] then Duration.TotalHours(AsOf - [opened_at]) else null, type number),
+				    AddRespMet = Table.AddColumn(AddAge, "Response Met", each [Response Minutes] <= [#"Response Target (min)"], type logical),
+				    AddResMet = Table.AddColumn(AddRespMet, "Resolution Met", each if [Resolution Hours] = null then null else [Resolution Hours] <= [#"Resolution Target (hrs)"], type logical),
+				    AddAged = Table.AddColumn(AddResMet, "Is Aged", each [Is Open] and [Age Hours] > [#"Resolution Target (hrs)"], type logical),
+				    AddReopen = Table.AddColumn(AddAged, "Reopened", each Number.From([reopen_count]) > 0, type logical),
+				    AddShift = Table.AddColumn(AddReopen, "Shift", each
+				        let h = Time.Hour([opened_at]), wd = Date.DayOfWeek([opened_at], Day.Monday)
+				        in if wd < 5 and h >= 7 and h < 20 then "Business hours" else "Evenings & weekends", type text),
+				    AddBucket = Table.AddColumn(AddShift, "Age Bucket", each
+				        if [Age Hours] = null then null else if [Age Hours] < 24 then "< 1 day" else if [Age Hours] < 72 then "1–3 days"
+				        else if [Age Hours] < 168 then "3–7 days" else if [Age Hours] < 720 then "1–4 weeks" else "> 4 weeks", type text),
+				    AddBucketSort = Table.AddColumn(AddBucket, "Age Bucket Sort", each List.PositionOf({"< 1 day", "1–3 days", "3–7 days", "1–4 weeks", "> 4 weeks"}, [Age Bucket]) + 1, Int64.Type),
+				    AddBand = Table.AddColumn(AddBucketSort, "Resolution Band", each
+				        if [Resolution Hours] = null then null else if [Resolution Hours] < 4 then "< 4 hrs" else if [Resolution Hours] < 24 then "4–24 hrs"
+				        else if [Resolution Hours] < 72 then "1–3 days" else "> 3 days", type text),
+				    AddBandSort = Table.AddColumn(AddBand, "Resolution Band Sort", each List.PositionOf({"< 4 hrs", "4–24 hrs", "1–3 days", "> 3 days"}, [Resolution Band]) + 1, Int64.Type),
+				    // 5. missing resolver group -> UNASSIGNED
+				    AddGroup = Table.AddColumn(AddBandSort, "Group Code", each if [assignment_group] = "" then "UNASSIGNED" else [assignment_group], type text),
+				    AddDate = Table.AddColumn(AddGroup, "Opened Date", each DateTime.Date([opened_at]), type date),
+				    Renamed = Table.RenameColumns(AddDate, {{"number", "Number"}, {"opened_at", "Opened At"}, {"category", "Category"}, {"contact_type", "Channel"},
+				        {"site_id", "Site ID"}, {"state", "State"}, {"caused_by_release", "Release"}}),
+				    Result = Table.SelectColumns(Renamed, {"Number", "Opened At", "Opened Date", "Priority", "Category", "Channel", "Group Code", "Site ID", "State", "Shift", "Release",
+				        "Response Minutes", "Resolution Hours", "Age Hours", "Response Met", "Resolution Met", "Is Open", "Is Aged", "Reopened",
+				        "Age Bucket", "Age Bucket Sort", "Resolution Band", "Resolution Band Sort"})
+				in
+				    Result
+
+	annotation PBI_ResultType = Table
+

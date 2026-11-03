@@ -1,0 +1,38 @@
+table DimGroup
+
+	column 'Group Code'
+		dataType: string
+		isKey
+		summarizeBy: none
+		sourceColumn: Group Code
+
+	column Group
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Group
+
+	column 'Group Type'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Group Type
+
+	column Vendor
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Vendor
+
+	partition DimGroup = m
+		mode: import
+		source =
+				let
+				    Source = Json.Document(File.Contents(DataFolder & "resolver_groups_api.json")),
+				    Groups = Table.FromRecords(Source[groups]),
+				    Renamed = Table.RenameColumns(Groups, {{"code", "Group Code"}, {"name", "Group"}, {"type", "Group Type"}, {"vendor", "Vendor"}}),
+				    WithUnassigned = Table.InsertRows(Renamed, Table.RowCount(Renamed), {[Group Code = "UNASSIGNED", Group = "Unassigned", Group Type = "Unassigned", Vendor = null]}),
+				    Filled = Table.ReplaceValue(WithUnassigned, null, "In-house", Replacer.ReplaceValue, {"Vendor"}),
+				    Typed = Table.TransformColumnTypes(Filled, {{"Group Code", type text}, {"Group", type text}, {"Group Type", type text}, {"Vendor", type text}})
+				in
+				    Typed
+
+	annotation PBI_ResultType = Table
+

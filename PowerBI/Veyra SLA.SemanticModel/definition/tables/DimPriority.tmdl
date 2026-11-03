@@ -1,0 +1,36 @@
+table DimPriority
+
+	column Priority
+		dataType: string
+		isKey
+		summarizeBy: none
+		sourceColumn: Priority
+
+	column 'Priority Name'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Priority Name
+
+	column 'Response Target (min)'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: Response Target (min)
+
+	column 'Resolution Target (hrs)'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: Resolution Target (hrs)
+
+	partition DimPriority = m
+		mode: import
+		source =
+				let
+				    Source = Excel.Workbook(File.Contents(DataFolder & "sla_policy_and_targets.xlsx"), null, true),
+				    Sheet = Source{[Item = "SLA Policy", Kind = "Sheet"]}[Data],
+				    Promoted = Table.PromoteHeaders(Sheet, [PromoteAllScalars = true]),
+				    Typed = Table.TransformColumnTypes(Promoted, {{"Priority", type text}, {"Priority Name", type text}, {"Response Target (min)", Int64.Type}, {"Resolution Target (hrs)", Int64.Type}})
+				in
+				    Typed
+
+	annotation PBI_ResultType = Table
+

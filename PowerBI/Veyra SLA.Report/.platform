@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Report",
+    "displayName": "Veyra SLA"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "c7e60649-359e-41b2-8f31-5437f64b36c7"
+  }
+}

@@ -1,0 +1,18 @@
+model Model
+	culture: en-US
+	defaultPowerBIDataSourceVersion: powerBI_V3
+	discourageImplicitMeasures
+	sourceQueryCulture: en-US
+
+annotation PBI_QueryOrder = ["DataFolder","RawIncidents","_Measures","DimDate","DimPriority","DimGroup","DimSite","FactIncident","FactCSAT","DimRelease","KPI Targets","Data Quality Log"]
+
+ref table '_Measures'
+ref table DimDate
+ref table DimPriority
+ref table DimGroup
+ref table DimSite
+ref table FactIncident
+ref table FactCSAT
+ref table DimRelease
+ref table 'KPI Targets'
+ref table 'Data Quality Log'

@@ -1,0 +1,69 @@
+table DimDate
+	dataCategory: Time
+
+	column Date
+		dataType: dateTime
+		formatString: d mmm yyyy
+		isKey
+		summarizeBy: none
+		sourceColumn: Date
+
+	column Year
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: Year
+
+	column 'Month No'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: Month No
+
+	column Month
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Month
+		sortByColumn: 'Month No'
+
+	column 'Month Start'
+		dataType: dateTime
+		formatString: mmm yyyy
+		summarizeBy: none
+		sourceColumn: Month Start
+
+	column 'Week Start'
+		dataType: dateTime
+		formatString: d mmm
+		summarizeBy: none
+		sourceColumn: Week Start
+
+	column 'Weekday No'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: Weekday No
+
+	column Weekday
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Weekday
+		sortByColumn: 'Weekday No'
+
+	partition DimDate = m
+		mode: import
+		source =
+				let
+				    Dates = List.Dates(#date(2026, 1, 1), 365, #duration(1, 0, 0, 0)),
+				    AsTable = Table.FromList(Dates, Splitter.SplitByNothing(), type table [Date = date]),
+				    AddYear = Table.AddColumn(AsTable, "Year", each Date.Year([Date]), Int64.Type),
+				    AddMonthNo = Table.AddColumn(AddYear, "Month No", each Date.Month([Date]), Int64.Type),
+				    AddMonth = Table.AddColumn(AddMonthNo, "Month", each Date.ToText([Date], "MMM", "en-US"), type text),
+				    AddMonthStart = Table.AddColumn(AddMonth, "Month Start", each Date.StartOfMonth([Date]), type date),
+				    AddWeek = Table.AddColumn(AddMonthStart, "Week Start", each Date.StartOfWeek([Date], Day.Monday), type date),
+				    AddWdNo = Table.AddColumn(AddWeek, "Weekday No", each Date.DayOfWeek([Date], Day.Monday) + 1, Int64.Type),
+				    AddWd = Table.AddColumn(AddWdNo, "Weekday", each Date.ToText([Date], "ddd", "en-US"), type text)
+				in
+				    AddWd
+
+	annotation PBI_ResultType = Table
+

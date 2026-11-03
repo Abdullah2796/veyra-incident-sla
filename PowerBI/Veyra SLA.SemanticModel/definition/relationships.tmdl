@@ -1,0 +1,20 @@
+relationship ad772524-2582-4582-b060-bb8d4bc27c2b
+	fromColumn: FactIncident.'Opened Date'
+	toColumn: DimDate.Date
+
+relationship 109bb9f0-9f96-4971-ba0d-f34a76384619
+	fromColumn: FactIncident.Priority
+	toColumn: DimPriority.Priority
+
+relationship bdc74c9c-5095-4f31-8987-f7dd203d676f
+	fromColumn: FactIncident.'Group Code'
+	toColumn: DimGroup.'Group Code'
+
+relationship 211d42bc-ba3e-4682-bc12-2c060e9df0bf
+	fromColumn: FactIncident.'Site ID'
+	toColumn: DimSite.'Site ID'
+
+relationship fc6e2c8a-63be-4974-88a8-721bc024f5dd
+	fromColumn: FactCSAT.'Incident Number'
+	toColumn: FactIncident.Number
+

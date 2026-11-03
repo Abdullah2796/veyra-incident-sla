@@ -1,0 +1,42 @@
+table DimSite
+
+	column 'Site ID'
+		dataType: string
+		isKey
+		summarizeBy: none
+		sourceColumn: Site ID
+
+	column Municipality
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Municipality
+
+	column Segment
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Segment
+
+	column Devices
+		dataType: int64
+		summarizeBy: sum
+		sourceColumn: Devices
+
+	column 'Contract Start'
+		dataType: dateTime
+		formatString: d mmm yyyy
+		summarizeBy: none
+		sourceColumn: Contract Start
+
+	partition DimSite = m
+		mode: import
+		source =
+				let
+				    Source = Excel.Workbook(File.Contents(DataFolder & "customer_sites.xlsx"), null, true),
+				    Sheet = Source{[Item = "Sites", Kind = "Sheet"]}[Data],
+				    Promoted = Table.PromoteHeaders(Sheet, [PromoteAllScalars = true]),
+				    Typed = Table.TransformColumnTypes(Promoted, {{"Site ID", type text}, {"Municipality", type text}, {"Segment", type text}, {"Devices", Int64.Type}, {"Contract Start", type date}})
+				in
+				    Typed
+
+	annotation PBI_ResultType = Table
+

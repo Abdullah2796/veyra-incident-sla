@@ -1,0 +1,48 @@
+table FactCSAT
+
+	column 'Incident Number'
+		dataType: string
+		isHidden
+		summarizeBy: none
+		sourceColumn: Incident Number
+
+	column 'Response Date'
+		dataType: dateTime
+		formatString: d mmm yyyy
+		summarizeBy: none
+		sourceColumn: Response Date
+
+	column Score
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: Score
+
+	column 'Comment Theme'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Comment Theme
+
+	column 'Has Incident'
+		dataType: boolean
+		isHidden
+		summarizeBy: none
+		sourceColumn: Has Incident
+
+	partition FactCSAT = m
+		mode: import
+		source =
+				let
+				    Source = Csv.Document(File.Contents(DataFolder & "csat_survey_responses.csv"), [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]),
+				    Promoted = Table.PromoteHeaders(Source, [PromoteAllScalars = true]),
+				    Renamed = Table.RenameColumns(Promoted, {{"incident_number", "Incident Number"}, {"response_date", "Response Date"}, {"score", "Score"}, {"comment_theme", "Comment Theme"}}),
+				    Typed = Table.TransformColumnTypes(Renamed, {{"Response Date", type date}, {"Score", Int64.Type}}, "en-US"),
+				    // flag survey rows whose incident number is not in the incident export
+				    Known = Table.Buffer(Table.AddColumn(Table.RenameColumns(Table.SelectColumns(FactIncident, {"Number"}), {{"Number", "Known Number"}}), "Has Incident", each true, type logical)),
+				    Joined = Table.Join(Typed, "Incident Number", Known, "Known Number", JoinKind.LeftOuter, JoinAlgorithm.RightHash),
+				    Flagged = Table.ReplaceValue(Table.RemoveColumns(Joined, {"Known Number"}), null, false, Replacer.ReplaceValue, {"Has Incident"}),
+				    Result = Table.TransformColumnTypes(Flagged, {{"Has Incident", type logical}})
+				in
+				    Result
+
+	annotation PBI_ResultType = Table
+

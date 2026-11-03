@@ -1,0 +1,88 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
+  "name": "v11",
+  "position": {
+    "x": 848,
+    "y": 192,
+    "z": 10000,
+    "height": 250,
+    "width": 416,
+    "tabOrder": 10000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "DimRelease"
+                    }
+                  },
+                  "Property": "Release"
+                }
+              },
+              "queryRef": "DimRelease.Release",
+              "nativeQueryRef": "Release"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "DimRelease"
+                    }
+                  },
+                  "Property": "Release Date"
+                }
+              },
+              "queryRef": "DimRelease.Release Date",
+              "nativeQueryRef": "Release Date"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "DimRelease"
+                    }
+                  },
+                  "Property": "Type"
+                }
+              },
+              "queryRef": "DimRelease.Type",
+              "nativeQueryRef": "Type"
+            }
+          ]
+        }
+      }
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Platform releases'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}
